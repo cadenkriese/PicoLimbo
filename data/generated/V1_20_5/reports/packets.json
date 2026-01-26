@@ -52,6 +52,9 @@
       },
       "minecraft:login_compression": {
         "protocol_id": 3
+      },
+      "minecraft:cookie_request": {
+        "protocol_id": 5
       }
     },
     "serverbound": {
@@ -63,6 +66,9 @@
       },
       "minecraft:login_acknowledged": {
         "protocol_id": 3
+      },
+      "minecraft:cookie_response": {
+        "protocol_id": 4
       }
     }
   },

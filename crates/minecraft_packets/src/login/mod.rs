@@ -1,3 +1,5 @@
+pub mod cookie_request_packet;
+pub mod cookie_response_packet;
 pub mod custom_query_answer_packet;
 pub mod custom_query_packet;
 mod data;
