@@ -10,6 +10,11 @@ pub enum KeepAliveStatus {
     Enabled,
 }
 
+pub struct ServerAddress {
+    pub hostname: String,
+    pub port: i32,
+}
+
 impl Default for ClientState {
     fn default() -> Self {
         Self {
@@ -23,6 +28,7 @@ impl Default for ClientState {
             is_flight_allowed: false,
             is_flying: false,
             flying_speed: 0.05,
+            destination: None,
         }
     }
 }
@@ -38,6 +44,7 @@ pub struct ClientState {
     is_flight_allowed: bool,
     is_flying: bool,
     flying_speed: f32,
+    destination: Option<ServerAddress>,
 }
 
 impl ClientState {
@@ -176,5 +183,13 @@ impl ClientState {
 
     pub const fn set_flying_speed(&mut self, flying_speed: f32) {
         self.flying_speed = flying_speed;
+    }
+
+    pub const fn get_destination(&self) -> Option<&ServerAddress> {
+        self.destination.as_ref()
+    }
+
+    pub fn set_destination(&mut self, destination: ServerAddress) {
+        self.destination = Some(destination);
     }
 }
