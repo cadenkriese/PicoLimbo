@@ -9,52 +9,90 @@ use futures::StreamExt;
 use minecraft_packets::login::login_disconnect_packet::LoginDisconnectPacket;
 use minecraft_packets::play::client_bound_keep_alive_packet::ClientBoundKeepAlivePacket;
 use minecraft_packets::play::disconnect_packet::DisconnectPacket;
+use minecraft_packets::play::transfer_packet::TransferPacket;
 use minecraft_protocol::prelude::State;
 use net::packet_stream::PacketStreamError;
 use net::raw_packet::RawPacket;
+use pico_rpc::server_monitor::ServerAddress;
+use std::collections::HashMap;
 use std::num::TryFromIntError;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::RwLock;
+use tokio::sync::{mpsc, oneshot, RwLock};
 use tracing::{debug, error, info, trace, warn};
+
+type TransferRegistry = Arc<RwLock<HashMap<ServerAddress, Vec<oneshot::Sender<()>>>>>;
 
 pub struct Server {
     state: Arc<RwLock<ServerState>>,
     listen_address: String,
+    ready_rx: mpsc::Receiver<ServerAddress>,
 }
 
 impl Server {
-    pub fn new(listen_address: &impl ToString, state: ServerState) -> Self {
+    pub fn new(
+        listen_address: &impl ToString,
+        state: ServerState,
+        ready_rx: mpsc::Receiver<ServerAddress>,
+    ) -> Self {
         Self {
             state: Arc::new(RwLock::new(state)),
             listen_address: listen_address.to_string(),
+            ready_rx,
         }
     }
 
     pub async fn run(self) {
-        let listener = match TcpListener::bind(&self.listen_address).await {
+        let Server {
+            state,
+            listen_address,
+            ready_rx,
+        } = self;
+
+        let listener = match TcpListener::bind(&listen_address).await {
             Ok(sock) => sock,
             Err(err) => {
-                error!("Failed to bind to {}: {}", self.listen_address, err);
+                error!("Failed to bind to {}: {}", listen_address, err);
                 std::process::exit(1);
             }
         };
 
-        info!("Listening on: {}", self.listen_address);
-        self.accept(&listener).await;
+        info!("Listening on: {}", listen_address);
+
+        let registry: TransferRegistry = Arc::new(RwLock::new(HashMap::new()));
+        let registry_clone = registry.clone();
+        let mut rx = ready_rx;
+
+        tokio::spawn(async move {
+            while let Some(addr) = rx.recv().await {
+                let mut lock = registry_clone.write().await;
+                if let Some(senders) = lock.remove(&addr) {
+                    for tx in senders {
+                        let _ = tx.send(());
+                    }
+                }
+            }
+        });
+
+        Self::accept(state, &listener, registry).await;
     }
 
-    pub async fn accept(self, listener: &TcpListener) {
+    pub async fn accept(
+        state: Arc<RwLock<ServerState>>,
+        listener: &TcpListener,
+        registry: TransferRegistry,
+    ) {
         loop {
             tokio::select! {
                  accept_result = listener.accept() => {
                     match accept_result {
                         Ok((socket, addr)) => {
                             debug!("Accepted connection from {}", addr);
-                        let state_clone = Arc::clone(&self.state);
+                        let state_clone = Arc::clone(&state);
+                        let registry_clone = registry.clone();
                             tokio::spawn(async move {
-                                handle_client(socket, state_clone).await;
+                                handle_client(socket, state_clone, registry_clone).await;
                             });
                         }
                         Err(e) => {
@@ -200,7 +238,26 @@ async fn read(
     client_data: &ClientData,
     server_state: &Arc<RwLock<ServerState>>,
     was_in_play_state: &mut bool,
+    registry: &TransferRegistry,
+    waiting_rx_holder: &mut Option<oneshot::Receiver<()>>,
 ) -> Result<(), PacketProcessingError> {
+    if waiting_rx_holder.is_none() {
+        let destination = client_data.client().await.get_destination().cloned();
+        if let Some(addr) = destination {
+            let (tx, rx) = oneshot::channel();
+            registry.write().await.entry(addr).or_default().push(tx);
+            *waiting_rx_holder = Some(rx);
+        }
+    }
+
+    let wait_future = async {
+        if let Some(rx) = waiting_rx_holder {
+            rx.await.ok()
+        } else {
+            futures::future::pending().await
+        }
+    };
+
     tokio::select! {
         result = client_data.read_packet() => {
             let raw_packet = result?;
@@ -209,16 +266,47 @@ async fn read(
         () = client_data.keep_alive_tick() => {
             send_keep_alive(client_data).await?;
         }
+        Some(_) = wait_future => {
+            // Destination ready!
+            let (protocol_version, destination) = {
+                let client = client_data.client().await;
+                (client.protocol_version(), client.get_destination().cloned())
+            };
+            
+            if let Some(addr) = destination {
+                let packet = PacketRegistry::Transfer(TransferPacket {
+                    host: addr.hostname,
+                    port: addr.port.into(),
+                });
+                let raw_packet = packet.encode_packet(protocol_version)?;
+                client_data.write_packet(raw_packet).await?;
+            }
+            
+            *waiting_rx_holder = None;
+        }
     }
     Ok(())
 }
 
-async fn handle_client(socket: TcpStream, server_state: Arc<RwLock<ServerState>>) {
+async fn handle_client(
+    socket: TcpStream,
+    server_state: Arc<RwLock<ServerState>>,
+    registry: TransferRegistry,
+) {
     let client_data = ClientData::new(socket);
     let mut was_in_play_state = false;
+    let mut waiting_rx: Option<oneshot::Receiver<()>> = None;
 
     loop {
-        match read(&client_data, &server_state, &mut was_in_play_state).await {
+        match read(
+            &client_data,
+            &server_state,
+            &mut was_in_play_state,
+            &registry,
+            &mut waiting_rx,
+        )
+        .await
+        {
             Ok(()) => {}
             Err(PacketProcessingError::Disconnected) => {
                 debug!("Client disconnected");

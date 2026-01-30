@@ -42,7 +42,9 @@ impl PacketHandler for CookieResponsePacket {
                     PacketHandlerError::invalid_state("Cookie payload missing 'port' tag")
                 })?;
 
-            client_state.set_destination(ServerAddress { hostname, port });
+            let address = ServerAddress { hostname, port };
+            server_state.ensure_monitored(address.clone());
+            client_state.set_destination(address);
 
             Ok(batch)
         } else {

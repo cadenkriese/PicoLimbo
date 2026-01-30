@@ -1,10 +1,10 @@
 use nimiq_jsonrpc_client::Client;
 use nimiq_jsonrpc_client::websocket::WebsocketClient;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use thiserror::Error;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info};
 
@@ -35,9 +35,18 @@ impl ServerMonitor {
             ready_tx,
         }
     }
+}
 
-    pub async fn ensure_monitored(&self, address: ServerAddress) {
-        let mut monitors = self.active_monitors.lock().await;
+impl Default for ServerMonitor {
+    fn default() -> Self {
+        let (tx, _) = mpsc::channel(1);
+        Self::new(tx)
+    }
+}
+
+impl ServerMonitor {
+    pub fn ensure_monitored(&self, address: ServerAddress) {
+        let mut monitors = self.active_monitors.lock().unwrap();
 
         if monitors.contains_key(&address) {
             return;
@@ -95,7 +104,7 @@ impl ServerMonitor {
             }
         }
 
-        let mut lock = monitors.lock().await;
+        let mut lock = monitors.lock().unwrap();
         lock.remove(&address);
     }
 

@@ -6,8 +6,10 @@ use crate::configuration::title::TitleConfig;
 use crate::configuration::world_config::boundaries::BoundariesConfig;
 use crate::server::network::Server;
 use crate::server_state::{ServerState, ServerStateBuilderError};
+use pico_rpc::server_monitor::ServerMonitor;
 use std::path::PathBuf;
 use std::process::ExitCode;
+use tokio::sync::mpsc;
 use tracing::{Level, debug, error};
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::layer::SubscriberExt;
@@ -21,9 +23,12 @@ pub async fn start_server(config_path: PathBuf, logging_level: u8) -> ExitCode {
 
     let bind = cfg.bind.clone();
 
-    match build_state(cfg) {
+    let (ready_tx, ready_rx) = mpsc::channel(100);
+    let monitor = ServerMonitor::new(ready_tx);
+
+    match build_state(cfg, monitor) {
         Ok(server_state) => {
-            Server::new(&bind, server_state).run().await;
+            Server::new(&bind, server_state, ready_rx).run().await;
             ExitCode::SUCCESS
         }
         Err(err) => {
@@ -53,8 +58,12 @@ fn load_configuration(config_path: &PathBuf) -> Option<Config> {
     None
 }
 
-fn build_state(cfg: Config) -> Result<ServerState, ServerStateBuilderError> {
+fn build_state(
+    cfg: Config,
+    monitor: ServerMonitor,
+) -> Result<ServerState, ServerStateBuilderError> {
     let mut server_state_builder = ServerState::builder();
+    server_state_builder.server_monitor(monitor);
 
     let forwarding: TaggedForwarding = cfg.forwarding.into();
 

@@ -5,6 +5,7 @@ use base64::engine::general_purpose;
 use base64::{Engine, alphabet, engine};
 use minecraft_packets::play::boss_bar_packet::{BossBarColor, BossBarDivision};
 use minecraft_protocol::prelude::{BinaryReaderError, Dimension};
+use pico_rpc::server_monitor::{ServerAddress, ServerMonitor};
 use pico_structures::prelude::{Schematic, SchematicError, World, WorldLoadingError};
 use pico_text_component::prelude::{Component, MiniMessageError, parse_mini_message};
 pub use server_commands::{ServerCommand, ServerCommands};
@@ -111,6 +112,7 @@ pub struct ServerState {
     allow_unsupported_versions: bool,
     allow_flight: bool,
     server_commands: ServerCommands,
+    external_server_monitor: ServerMonitor,
 }
 
 impl ServerState {
@@ -262,6 +264,10 @@ impl ServerState {
         &self.server_commands
     }
 
+    pub fn ensure_monitored(&self, address: ServerAddress) {
+        self.external_server_monitor.ensure_monitored(address);
+    }
+
     pub fn increment(&self) {
         self.connected_clients.fetch_add(1, Ordering::SeqCst);
     }
@@ -303,6 +309,7 @@ pub struct ServerStateBuilder {
     allow_flight: bool,
     accept_transfers: bool,
     server_commands: ServerCommands,
+    external_server_monitor: ServerMonitor,
 }
 
 #[derive(Debug, Error)]
@@ -574,6 +581,11 @@ impl ServerStateBuilder {
         self
     }
 
+    pub fn server_monitor(&mut self, monitor: ServerMonitor) -> &mut Self {
+        self.external_server_monitor = monitor;
+        self
+    }
+
     /// Finish building, returning an error if any required fields are missing.
     pub fn build(self) -> Result<ServerState, ServerStateBuilderError> {
         let world = if self.schematic_file_path.is_empty() {
@@ -609,7 +621,7 @@ impl ServerStateBuilder {
             tab_list: self.tab_list,
             fetch_player_skins: self.fetch_player_skins,
             boss_bar: self.boss_bar,
-            fav_icon: self.fav_icon,
+            fav_icon: self.fav_icon, 
             compression_settings: self.compression_settings,
             title: self.title,
             reduced_debug_info: self.reduced_debug_info,
@@ -619,6 +631,7 @@ impl ServerStateBuilder {
             allow_flight: self.allow_flight,
             accept_transfers: self.accept_transfers,
             server_commands: self.server_commands,
+            external_server_monitor: self.external_server_monitor,
         })
     }
 }
