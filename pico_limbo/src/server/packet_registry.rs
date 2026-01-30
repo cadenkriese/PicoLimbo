@@ -10,6 +10,8 @@ use minecraft_packets::configuration::finish_configuration_packet::FinishConfigu
 use minecraft_packets::configuration::registry_data_packet::RegistryDataPacket;
 use minecraft_packets::configuration::update_tags_packet::UpdateTagsPacket;
 use minecraft_packets::handshaking::handshake_packet::HandshakePacket;
+use minecraft_packets::login::cookie_request_packet::CookieRequestPacket;
+use minecraft_packets::login::cookie_response_packet::CookieResponsePacket;
 use minecraft_packets::login::custom_query_answer_packet::CustomQueryAnswerPacket;
 use minecraft_packets::login::custom_query_packet::CustomQueryPacket;
 use minecraft_packets::login::game_profile_packet::GameProfilePacket;
@@ -113,6 +115,13 @@ pub enum PacketRegistry {
 
     #[protocol_id(
         state = "login",
+        bound = "serverbound",
+        name = "minecraft:cookie_response"
+    )]
+    CookieResponse(CookieResponsePacket),
+
+    #[protocol_id(
+        state = "login",
         bound = "clientbound",
         name = "minecraft:custom_query"
     )]
@@ -145,6 +154,13 @@ pub enum PacketRegistry {
         name = "minecraft:login_compression"
     )]
     SetCompression(SetCompressionPacket),
+
+    #[protocol_id(
+        state = "login",
+        bound = "clientbound",
+        name = "minecraft:cookie_request"
+    )]
+    CookieRequest(CookieRequestPacket),
 
     // Configuration packets
     #[protocol_id(
@@ -365,6 +381,7 @@ impl PacketHandler for PacketRegistry {
             Self::PingRequest(packet) => packet.handle(client_state, server_state),
             Self::LoginStart(packet) => packet.handle(client_state, server_state),
             Self::CustomQueryAnswer(packet) => packet.handle(client_state, server_state),
+            Self::CookieResponse(packet) => packet.handle(client_state, server_state),
             Self::LoginAcknowledged(packet) => packet.handle(client_state, server_state),
             Self::AcknowledgeConfiguration(packet) => packet.handle(client_state, server_state),
             Self::SetPlayerPositionAndRotation(packet) => packet.handle(client_state, server_state),
