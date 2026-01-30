@@ -1,0 +1,16 @@
+[package]
+name = "pico_rpc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+async-stream = "0.3"
+async-trait = "0.1"
+futures = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros"] }
+tracing = { workspace = true }
+nimiq-jsonrpc-client = { git = "https://github.com/cadenkriese/jsonrpc.git" }
+nimiq-jsonrpc-core = { git = "https://github.com/cadenkriese/jsonrpc.git" }

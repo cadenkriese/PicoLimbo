@@ -1,6 +1,7 @@
 use crate::server::game_profile::GameProfile;
 use minecraft_packets::login::Property;
 use minecraft_protocol::prelude::{ProtocolVersion, State, Uuid};
+use pico_rpc::server_monitor::ServerAddress;
 use tracing::info;
 
 #[derive(PartialEq, Eq)]
@@ -8,11 +9,6 @@ pub enum KeepAliveStatus {
     Disabled,
     ShouldEnable,
     Enabled,
-}
-
-pub struct ServerAddress {
-    pub hostname: String,
-    pub port: i32,
 }
 
 impl Default for ClientState {
