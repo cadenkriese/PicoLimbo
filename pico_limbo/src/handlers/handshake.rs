@@ -8,7 +8,8 @@ use crate::server::packet_handler::{PacketHandler, PacketHandlerError};
 use crate::server::packet_registry::PacketRegistry;
 use crate::server_state::ServerState;
 use minecraft_packets::handshaking::handshake_packet::HandshakePacket;
-use minecraft_protocol::prelude::{ProtocolVersion, State};
+use minecraft_packets::login::cookie_request_packet::CookieRequestPacket;
+use minecraft_protocol::prelude::{Identifier, ProtocolVersion, State};
 use thiserror::Error;
 
 impl PacketHandler for HandshakePacket {
@@ -17,7 +18,7 @@ impl PacketHandler for HandshakePacket {
         client_state: &mut ClientState,
         server_state: &ServerState,
     ) -> Result<Batch<PacketRegistry>, PacketHandlerError> {
-        let batch = Batch::new();
+        let mut batch = Batch::new();
         client_state
             .set_protocol_version(self.get_protocol(server_state.allow_unsupported_versions()));
 
@@ -46,6 +47,7 @@ impl PacketHandler for HandshakePacket {
                     State::Transfer => {
                         if server_state.accept_transfers() {
                             client_state.set_state(State::Login);
+                            send_cookie_request(&mut batch, client_state)?;
                             begin_login(client_state, server_state, &self.hostname)?;
                             Ok(batch)
                         } else {
@@ -90,6 +92,28 @@ fn begin_login(
         }
         LegacyForwardingResult::NoForwarding => Ok(()),
     }
+}
+
+fn send_cookie_request(
+    batch: &mut Batch<PacketRegistry>,
+    client_state: &ClientState,
+) -> Result<(), PacketHandlerError> {
+    if !client_state
+        .protocol_version()
+        .is_after_inclusive(ProtocolVersion::V1_20_5)
+    {
+        return Err(PacketHandlerError::invalid_state(
+            "Protocol version does not support cookie packets.",
+        ));
+    }
+
+    let packet = CookieRequestPacket {
+        identifier: Identifier::pico_limbo("destination"),
+    };
+
+    batch.queue(|| PacketRegistry::CookieRequest(packet));
+
+    Ok(())
 }
 
 #[derive(Error, Debug)]
