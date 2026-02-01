@@ -12,5 +12,5 @@ thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros"] }
 tracing = { workspace = true }
-nimiq-jsonrpc-client = { git = "https://github.com/cadenkriese/jsonrpc.git", rev = "43a358090f23f411a6eb4a126d12cdae588c6de3" }
-nimiq-jsonrpc-core = { git = "https://github.com/cadenkriese/jsonrpc.git", rev = "43a358090f23f411a6eb4a126d12cdae588c6de3" }
+nimiq-jsonrpc-client = { git = "https://github.com/cadenkriese/jsonrpc.git", rev = "6f3e07e6162776fe035c1c8af4f27473ca2f1bae" }
+nimiq-jsonrpc-core = { git = "https://github.com/cadenkriese/jsonrpc.git", rev = "6f3e07e6162776fe035c1c8af4f27473ca2f1bae" }
