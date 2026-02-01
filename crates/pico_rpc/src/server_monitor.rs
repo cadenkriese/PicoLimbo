@@ -45,7 +45,7 @@ impl Default for ServerMonitor {
 }
 
 impl ServerMonitor {
-    pub fn ensure_monitored(&self, address: ServerAddress) {
+    pub fn ensure_monitored(&self, address: ServerAddress, token: String) {
         let mut monitors = self.active_monitors.lock().unwrap();
 
         if monitors.contains_key(&address) {
@@ -62,7 +62,7 @@ impl ServerMonitor {
         let monitors_ref = self.active_monitors.clone();
 
         let task = tokio::spawn(async move {
-            Self::monitor_loop(address_clone, tx, monitors_ref).await;
+            Self::monitor_loop(address_clone, token, tx, monitors_ref).await;
         });
 
         monitors.insert(address, task);
@@ -70,15 +70,18 @@ impl ServerMonitor {
 
     async fn monitor_loop(
         address: ServerAddress,
+        token: String,
         tx: mpsc::Sender<ServerAddress>,
         monitors: Arc<Mutex<HashMap<ServerAddress, JoinHandle<()>>>>,
     ) {
         let mut interval = tokio::time::interval(Duration::from_secs(1));
 
+        interval.tick().await; // Initial delay
+
         loop {
             interval.tick().await;
 
-            match Self::server_started(&address.hostname, address.port as u16).await {
+            match Self::check_server_started(&address.hostname, address.port as u16, token.clone()).await {
                 Ok(started) => {
                     if started {
                         debug!("Server {}:{} has started", address.hostname, address.port);
@@ -108,11 +111,10 @@ impl ServerMonitor {
         lock.remove(&address);
     }
 
-    async fn server_started(hostname: &str, port: u16) -> Result<bool, ServerMonitorError> {
-        let url = format!("ws://{}:{}", hostname, port).parse().unwrap();
-        let token = Some("krQJUjIjSPwmcXKi3cIearBh65fH3TEEwzrQ6D2o".to_string());
+    async fn check_server_started(hostname: &str, management_port: u16, token: String) -> Result<bool, ServerMonitorError> {
+        let url = format!("ws://{}:{}", hostname, management_port).parse().unwrap();
 
-        let client = match WebsocketClient::new(url, token).await {
+        let client = match WebsocketClient::new(url, Some(token)).await {
             Ok(client) => client,
             Err(e) => {
                 return Err(ServerMonitorError::Custom(format!(
@@ -123,31 +125,19 @@ impl ServerMonitor {
         };
 
         let status: ServerManagementStateResponse = client
-            .send_request("minecraft:notification/status", &())
+            .send_request::<(), ServerManagementStateResponse>("minecraft:server/status", None)
             .await
             .expect("Failed to send subscription request");
 
         debug!("Received status: {:?}", status);
+
+        client.close().await;
 
         return Ok(status.started);
     }
 }
 
 #[derive(serde::Deserialize, Debug)]
-struct ServerManagementVersion {
-    protocol: i32,
-    name: String,
-}
-
-#[derive(serde::Deserialize, Debug)]
-struct ServerManagementPlayer {
-    name: String,
-    id: String,
-}
-
-#[derive(serde::Deserialize, Debug)]
 struct ServerManagementStateResponse {
-    players: Vec<ServerManagementPlayer>,
     started: bool,
-    version: ServerManagementVersion,
 }
