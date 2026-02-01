@@ -66,7 +66,9 @@ impl PacketHandler for CookieResponsePacket {
                 })?;
 
             let management_address = ServerAddress {
-                hostname: hostname.clone(),
+                hostname: server_state
+                    .external_server_hostname()
+                    .unwrap_or(hostname.clone()),
                 port: server_state.external_server_management_port(),
             };
             let game_server_address = ServerAddress { hostname, port };

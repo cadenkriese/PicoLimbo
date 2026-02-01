@@ -15,6 +15,7 @@ pub struct EnabledExternalServerConfig {
     enabled: bool,
     pub management_port: i32,
     pub management_secret: String,
+    pub management_hostname: Option<String>,
 }
 
 impl Default for ExternalServerConfig {
@@ -23,6 +24,7 @@ impl Default for ExternalServerConfig {
             enabled: true,
             management_port: 25566,
             management_secret: "default_secret".to_string(),
+            management_hostname: None,
         })
     }
 }

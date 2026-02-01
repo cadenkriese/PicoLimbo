@@ -112,6 +112,7 @@ fn build_state(
 
     if let ExternalServerConfig::Enabled(external_server) = cfg.external_server {
         server_state_builder
+            .external_server_hostname(external_server.management_hostname)
             .external_server_management_port(external_server.management_port)
             .external_server_management_secret(external_server.management_secret);
     }

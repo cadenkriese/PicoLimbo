@@ -112,6 +112,7 @@ pub struct ServerState {
     allow_unsupported_versions: bool,
     allow_flight: bool,
     server_commands: ServerCommands,
+    external_server_hostname: Option<String>,
     external_server_management_port: i32,
     external_server_management_secret: String,
     external_server_monitor: ServerMonitor,
@@ -274,6 +275,10 @@ impl ServerState {
         self.external_server_management_secret.clone()
     }
 
+    pub fn external_server_hostname(&self) -> Option<String> {
+        self.external_server_hostname.clone()
+    }
+
     pub fn ensure_monitored(&self, address: ServerAddress, token: String) {
         self.external_server_monitor
             .ensure_monitored(address, token);
@@ -320,6 +325,7 @@ pub struct ServerStateBuilder {
     allow_flight: bool,
     accept_transfers: bool,
     server_commands: ServerCommands,
+    external_server_hostname: Option<String>,
     external_server_management_port: i32,
     external_server_management_secret: String,
     external_server_monitor: ServerMonitor,
@@ -448,6 +454,11 @@ impl ServerStateBuilder {
 
     pub const fn set_allow_flight(&mut self, allow_flight: bool) -> &mut Self {
         self.allow_flight = allow_flight;
+        self
+    }
+
+    pub fn external_server_hostname(&mut self, hostname: Option<String>) -> &mut Self {
+        self.external_server_hostname = hostname;
         self
     }
 
@@ -654,6 +665,7 @@ impl ServerStateBuilder {
             allow_flight: self.allow_flight,
             accept_transfers: self.accept_transfers,
             server_commands: self.server_commands,
+            external_server_hostname: self.external_server_hostname,
             external_server_management_port: self.external_server_management_port,
             external_server_management_secret: self.external_server_management_secret,
             external_server_monitor: self.external_server_monitor,
