@@ -988,7 +988,7 @@ dependencies = [
 [[package]]
 name = "nimiq-jsonrpc-client"
 version = "0.3.1"
-source = "git+https://github.com/cadenkriese/jsonrpc.git#6f3e07e6162776fe035c1c8af4f27473ca2f1bae"
+source = "git+https://github.com/cadenkriese/jsonrpc.git?rev=43a358090f23f411a6eb4a126d12cdae588c6de3#43a358090f23f411a6eb4a126d12cdae588c6de3"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1008,7 +1008,7 @@ dependencies = [
 [[package]]
 name = "nimiq-jsonrpc-core"
 version = "0.3.1"
-source = "git+https://github.com/cadenkriese/jsonrpc.git#6f3e07e6162776fe035c1c8af4f27473ca2f1bae"
+source = "git+https://github.com/cadenkriese/jsonrpc.git?rev=43a358090f23f411a6eb4a126d12cdae588c6de3#43a358090f23f411a6eb4a126d12cdae588c6de3"
 dependencies = [
  "log",
  "serde",
