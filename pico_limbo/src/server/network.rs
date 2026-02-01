@@ -269,6 +269,7 @@ async fn read(
         Some(()) = wait_future => {
             let (protocol_version, destination) = {
                 let client = client_data.client().await;
+                debug!("Transferring {} to {}:{}", client_data.client().await.get_username(), client.get_destination().unwrap().hostname, client.get_destination().unwrap().port);
                 (client.protocol_version(), client.get_destination().cloned())
             };
 
