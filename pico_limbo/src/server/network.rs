@@ -267,13 +267,13 @@ async fn read(
             send_keep_alive(client_data).await?;
         }
         Some(()) = wait_future => {
+            let client = client_data.client().await;
             let (protocol_version, destination) = {
-                let client = client_data.client().await;
-                debug!("Transferring {} to {}:{}", client_data.client().await.get_username(), client.get_destination().unwrap().hostname, client.get_destination().unwrap().port);
                 (client.protocol_version(), client.get_destination().cloned())
             };
 
             if let Some(addr) = destination {
+                info!("Transferring {} to {}:{}", client.get_username(), addr.hostname, addr.port);
                 let packet = PacketRegistry::Transfer(TransferPacket {
                     host: addr.hostname,
                     port: addr.port.into(),

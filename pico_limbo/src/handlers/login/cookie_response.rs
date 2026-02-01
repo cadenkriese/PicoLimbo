@@ -73,6 +73,7 @@ impl PacketHandler for CookieResponsePacket {
             };
             let game_server_address = ServerAddress { hostname, port };
             server_state.ensure_monitored(
+                game_server_address.clone(),
                 management_address,
                 server_state.external_server_management_secret(),
             );

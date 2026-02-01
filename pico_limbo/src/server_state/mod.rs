@@ -279,9 +279,14 @@ impl ServerState {
         self.external_server_hostname.clone()
     }
 
-    pub fn ensure_monitored(&self, address: ServerAddress, token: String) {
+    pub fn ensure_monitored(
+        &self,
+        target_address: ServerAddress,
+        management_address: ServerAddress,
+        token: String,
+    ) {
         self.external_server_monitor
-            .ensure_monitored(address, token);
+            .ensure_monitored(target_address, management_address, token);
     }
 
     pub fn increment(&self) {

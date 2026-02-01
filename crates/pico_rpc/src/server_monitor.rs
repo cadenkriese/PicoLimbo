@@ -45,31 +45,45 @@ impl Default for ServerMonitor {
 }
 
 impl ServerMonitor {
-    pub fn ensure_monitored(&self, address: ServerAddress, token: String) {
+    pub fn ensure_monitored(
+        &self,
+        target_address: ServerAddress,
+        management_address: ServerAddress,
+        token: String,
+    ) {
         let mut monitors = self.active_monitors.lock().unwrap();
 
-        if monitors.contains_key(&address) {
+        if monitors.contains_key(&management_address) {
             return;
         }
 
         info!(
             "Monitoring {}:{} for startup",
-            address.hostname, address.port
+            management_address.hostname, management_address.port
         );
 
-        let address_clone = address.clone();
+        let target_address_clone = target_address.clone();
+        let management_address_clone = management_address.clone();
         let tx = self.ready_tx.clone();
         let monitors_ref = self.active_monitors.clone();
 
         let task = tokio::spawn(async move {
-            Self::monitor_loop(address_clone, token, tx, monitors_ref).await;
+            Self::monitor_loop(
+                target_address_clone,
+                management_address_clone,
+                token,
+                tx,
+                monitors_ref,
+            )
+            .await;
         });
 
-        monitors.insert(address, task);
+        monitors.insert(management_address, task);
     }
 
     async fn monitor_loop(
-        address: ServerAddress,
+        target_address: ServerAddress,
+        management_address: ServerAddress,
         token: String,
         tx: mpsc::Sender<ServerAddress>,
         monitors: Arc<Mutex<HashMap<ServerAddress, JoinHandle<()>>>>,
@@ -81,14 +95,21 @@ impl ServerMonitor {
         loop {
             interval.tick().await;
 
-            match Self::check_server_started(&address.hostname, address.port as u16, token.clone())
-                .await
+            match Self::check_server_started(
+                &management_address.hostname,
+                management_address.port as u16,
+                token.clone(),
+            )
+            .await
             {
                 Ok(started) => {
                     if started {
-                        debug!("Server {}:{} has started", address.hostname, address.port);
+                        debug!(
+                            "Server {}:{} has started",
+                            management_address.hostname, management_address.port
+                        );
 
-                        if let Err(e) = tx.send(address.clone()).await {
+                        if let Err(e) = tx.send(target_address.clone()).await {
                             error!("Failed to report ready server: {}", e);
                         }
 
@@ -96,21 +117,21 @@ impl ServerMonitor {
                     } else {
                         debug!(
                             "Server {}:{} not started yet",
-                            address.hostname, address.port
+                            management_address.hostname, management_address.port
                         );
                     }
                 }
                 Err(e) => {
                     debug!(
                         "Error checking server {}:{}: {:?}",
-                        address.hostname, address.port, e
+                        management_address.hostname, management_address.port, e
                     );
                 }
             }
         }
 
         let mut lock = monitors.lock().unwrap();
-        lock.remove(&address);
+        lock.remove(&management_address);
     }
 
     async fn check_server_started(
