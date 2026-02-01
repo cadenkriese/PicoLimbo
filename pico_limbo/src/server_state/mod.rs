@@ -112,6 +112,8 @@ pub struct ServerState {
     allow_unsupported_versions: bool,
     allow_flight: bool,
     server_commands: ServerCommands,
+    external_server_management_port: i32,
+    external_server_management_secret: String,
     external_server_monitor: ServerMonitor,
 }
 
@@ -264,8 +266,16 @@ impl ServerState {
         &self.server_commands
     }
 
-    pub fn ensure_monitored(&self, address: ServerAddress) {
-        self.external_server_monitor.ensure_monitored(address);
+    pub fn external_server_management_port(&self) -> i32 {
+        self.external_server_management_port
+    }
+
+    pub fn external_server_management_secret(&self) -> String {
+        self.external_server_management_secret.clone()
+    }
+
+    pub fn ensure_monitored(&self, address: ServerAddress, token: String) {
+        self.external_server_monitor.ensure_monitored(address, token);
     }
 
     pub fn increment(&self) {
@@ -309,6 +319,8 @@ pub struct ServerStateBuilder {
     allow_flight: bool,
     accept_transfers: bool,
     server_commands: ServerCommands,
+    external_server_management_port: i32,
+    external_server_management_secret: String,
     external_server_monitor: ServerMonitor,
 }
 
@@ -435,6 +447,16 @@ impl ServerStateBuilder {
 
     pub const fn set_allow_flight(&mut self, allow_flight: bool) -> &mut Self {
         self.allow_flight = allow_flight;
+        self
+    }
+
+    pub const fn external_server_management_port(&mut self, port: i32) -> &mut Self {
+        self.external_server_management_port = port;
+        self
+    }
+
+    pub fn external_server_management_secret(&mut self, secret: String) -> &mut Self {
+        self.external_server_management_secret = secret;
         self
     }
 
@@ -631,6 +653,8 @@ impl ServerStateBuilder {
             allow_flight: self.allow_flight,
             accept_transfers: self.accept_transfers,
             server_commands: self.server_commands,
+            external_server_management_port: self.external_server_management_port,
+            external_server_management_secret: self.external_server_management_secret,
             external_server_monitor: self.external_server_monitor,
         })
     }

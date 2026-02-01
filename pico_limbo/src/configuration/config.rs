@@ -2,6 +2,7 @@ use crate::configuration::boss_bar::BossBarConfig;
 use crate::configuration::commands::CommandsConfig;
 use crate::configuration::compression::CompressionConfig;
 use crate::configuration::env_placeholders::{EnvPlaceholderError, expand_env_placeholders};
+use crate::configuration::external_server::ExternalServerConfig;
 use crate::configuration::forwarding::ForwardingConfig;
 use crate::configuration::game_mode_config::GameModeConfig;
 use crate::configuration::server_list::ServerListConfig;
@@ -77,6 +78,8 @@ pub struct Config {
     pub title: TitleConfig,
 
     pub commands: CommandsConfig,
+
+    pub external_server: ExternalServerConfig,
 }
 
 impl Default for Config {
@@ -100,6 +103,7 @@ impl Default for Config {
             allow_flight: false,
             accept_transfers: false,
             commands: CommandsConfig::default(),
+            external_server: ExternalServerConfig::default(),
         }
     }
 }

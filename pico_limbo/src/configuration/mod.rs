@@ -1,5 +1,6 @@
 pub mod boss_bar;
 pub mod commands;
+pub mod external_server;
 mod compression;
 pub mod config;
 mod env_placeholders;

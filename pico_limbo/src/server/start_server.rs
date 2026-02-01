@@ -1,6 +1,7 @@
 use crate::configuration::TaggedForwarding;
 use crate::configuration::boss_bar::BossBarConfig;
 use crate::configuration::config::{Config, ConfigError, load_or_create};
+use crate::configuration::external_server::ExternalServerConfig;
 use crate::configuration::tab_list::TabListMode;
 use crate::configuration::title::TitleConfig;
 use crate::configuration::world_config::boundaries::BoundariesConfig;
@@ -107,6 +108,12 @@ fn build_state(
             title.stay,
             title.fade_out,
         )?;
+    }
+
+    if let ExternalServerConfig::Enabled(external_server) = cfg.external_server {
+        server_state_builder
+            .external_server_management_port(external_server.management_port)
+            .external_server_management_secret(external_server.management_secret.clone());
     }
 
     let server_icon = cfg.server_list.server_icon;
