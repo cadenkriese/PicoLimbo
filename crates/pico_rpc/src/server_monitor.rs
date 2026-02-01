@@ -74,9 +74,9 @@ impl ServerMonitor {
         tx: mpsc::Sender<ServerAddress>,
         monitors: Arc<Mutex<HashMap<ServerAddress, JoinHandle<()>>>>,
     ) {
-        let mut interval = tokio::time::interval(Duration::from_secs(1));
+        let mut interval: tokio::time::Interval = tokio::time::interval(Duration::from_secs(1));
 
-        interval.tick().await; // Initial delay
+        tokio::time::sleep(Duration::from_secs(5)).await;
 
         loop {
             interval.tick().await;
