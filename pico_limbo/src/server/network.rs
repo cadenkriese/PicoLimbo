@@ -267,7 +267,6 @@ async fn read(
             send_keep_alive(client_data).await?;
         }
         Some(_) = wait_future => {
-            // Destination ready!
             let (protocol_version, destination) = {
                 let client = client_data.client().await;
                 (client.protocol_version(), client.get_destination().cloned())

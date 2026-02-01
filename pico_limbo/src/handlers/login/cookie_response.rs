@@ -4,8 +4,9 @@ use crate::server::packet_handler::{PacketHandler, PacketHandlerError};
 use crate::server::packet_registry::PacketRegistry;
 use crate::server_state::ServerState;
 use minecraft_packets::login::cookie_response_packet::CookieResponsePacket;
-use minecraft_protocol::prelude::Nbt;
+use minecraft_protocol::prelude::{Nbt, Optional};
 use pico_rpc::server_monitor::ServerAddress;
+use tracing::{debug, error};
 
 impl PacketHandler for CookieResponsePacket {
     fn handle(
@@ -19,6 +20,18 @@ impl PacketHandler for CookieResponsePacket {
             return Err(PacketHandlerError::invalid_state("Transfers disabled"));
         }
 
+        let payload_bytes = match &self.payload {
+            Optional::None => {
+                return Err(PacketHandlerError::invalid_state(
+                    "Cookie payload is missing",
+                ));
+            }
+            Optional::Some(bytes) => bytes.inner().as_slice(),
+        };
+
+        let payload_hex = payload_bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+        debug!("Received cookie {} with payload {}", self.identifier, payload_hex);
+
         if self.identifier.namespace != "pico_limbo" {
             return Err(PacketHandlerError::invalid_state(
                 "Received a cookie from an unknown namespace",
@@ -26,11 +39,13 @@ impl PacketHandler for CookieResponsePacket {
         }
 
         if self.identifier.thing == "destination" {
-            let payload_bytes = self.payload.inner().as_slice();
-            let payload_tag = Nbt::from_bytes(payload_bytes)
-                .map_err(|_| PacketHandlerError::invalid_state("Failed to parse cookie payload"))?;
+            let payload_tag = Nbt::from_network_bytes(payload_bytes).map_err(|e| {
+                error!("Failed to decode NBT payload: {}", e);
+                PacketHandlerError::invalid_state("Invalid NBT in cookie payload")
+            })?;
+            
             let hostname = payload_tag
-                .find_tag("hostname")
+                .find_tag("host")
                 .and_then(|tag| tag.get_string())
                 .ok_or_else(|| {
                     PacketHandlerError::invalid_state("Cookie payload missing 'hostname' tag")
@@ -42,9 +57,10 @@ impl PacketHandler for CookieResponsePacket {
                     PacketHandlerError::invalid_state("Cookie payload missing 'port' tag")
                 })?;
 
-            let address = ServerAddress { hostname, port };
-            server_state.ensure_monitored(address.clone());
-            client_state.set_destination(address);
+            let management_address = ServerAddress { hostname: hostname.clone(), port: server_state.external_server_management_port() };
+            let game_server_address = ServerAddress { hostname, port };
+            server_state.ensure_monitored(management_address.clone(), server_state.external_server_management_secret().clone());
+            client_state.set_destination(game_server_address);
 
             Ok(batch)
         } else {
