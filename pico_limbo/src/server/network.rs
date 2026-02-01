@@ -19,7 +19,7 @@ use std::num::TryFromIntError;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::{mpsc, oneshot, RwLock};
+use tokio::sync::{RwLock, mpsc, oneshot};
 use tracing::{debug, error, info, trace, warn};
 
 type TransferRegistry = Arc<RwLock<HashMap<ServerAddress, Vec<oneshot::Sender<()>>>>>;
@@ -44,7 +44,7 @@ impl Server {
     }
 
     pub async fn run(self) {
-        let Server {
+        let Self {
             state,
             listen_address,
             ready_rx,
@@ -266,12 +266,12 @@ async fn read(
         () = client_data.keep_alive_tick() => {
             send_keep_alive(client_data).await?;
         }
-        Some(_) = wait_future => {
+        Some(()) = wait_future => {
             let (protocol_version, destination) = {
                 let client = client_data.client().await;
                 (client.protocol_version(), client.get_destination().cloned())
             };
-            
+
             if let Some(addr) = destination {
                 let packet = PacketRegistry::Transfer(TransferPacket {
                     host: addr.hostname,
@@ -280,7 +280,7 @@ async fn read(
                 let raw_packet = packet.encode_packet(protocol_version)?;
                 client_data.write_packet(raw_packet).await?;
             }
-            
+
             *waiting_rx_holder = None;
         }
     }

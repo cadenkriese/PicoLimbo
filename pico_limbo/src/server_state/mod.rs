@@ -266,7 +266,7 @@ impl ServerState {
         &self.server_commands
     }
 
-    pub fn external_server_management_port(&self) -> i32 {
+    pub const fn external_server_management_port(&self) -> i32 {
         self.external_server_management_port
     }
 
@@ -275,7 +275,8 @@ impl ServerState {
     }
 
     pub fn ensure_monitored(&self, address: ServerAddress, token: String) {
-        self.external_server_monitor.ensure_monitored(address, token);
+        self.external_server_monitor
+            .ensure_monitored(address, token);
     }
 
     pub fn increment(&self) {
@@ -643,7 +644,7 @@ impl ServerStateBuilder {
             tab_list: self.tab_list,
             fetch_player_skins: self.fetch_player_skins,
             boss_bar: self.boss_bar,
-            fav_icon: self.fav_icon, 
+            fav_icon: self.fav_icon,
             compression_settings: self.compression_settings,
             title: self.title,
             reduced_debug_info: self.reduced_debug_info,

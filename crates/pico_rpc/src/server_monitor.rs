@@ -81,7 +81,9 @@ impl ServerMonitor {
         loop {
             interval.tick().await;
 
-            match Self::check_server_started(&address.hostname, address.port as u16, token.clone()).await {
+            match Self::check_server_started(&address.hostname, address.port as u16, token.clone())
+                .await
+            {
                 Ok(started) => {
                     if started {
                         debug!("Server {}:{} has started", address.hostname, address.port);
@@ -111,8 +113,14 @@ impl ServerMonitor {
         lock.remove(&address);
     }
 
-    async fn check_server_started(hostname: &str, management_port: u16, token: String) -> Result<bool, ServerMonitorError> {
-        let url = format!("ws://{}:{}", hostname, management_port).parse().unwrap();
+    async fn check_server_started(
+        hostname: &str,
+        management_port: u16,
+        token: String,
+    ) -> Result<bool, ServerMonitorError> {
+        let url = format!("ws://{}:{}", hostname, management_port)
+            .parse()
+            .unwrap();
 
         let client = match WebsocketClient::new(url, Some(token)).await {
             Ok(client) => client,
@@ -133,7 +141,7 @@ impl ServerMonitor {
 
         client.close().await;
 
-        return Ok(status.started);
+        Ok(status.started)
     }
 }
 

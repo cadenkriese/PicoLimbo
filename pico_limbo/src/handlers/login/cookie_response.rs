@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use crate::server::batch::Batch;
 use crate::server::client_state::ClientState;
 use crate::server::packet_handler::{PacketHandler, PacketHandlerError};
@@ -29,8 +31,14 @@ impl PacketHandler for CookieResponsePacket {
             Optional::Some(bytes) => bytes.inner().as_slice(),
         };
 
-        let payload_hex = payload_bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
-        debug!("Received cookie {} with payload {}", self.identifier, payload_hex);
+        let payload_hex = payload_bytes.iter().fold(String::new(), |mut acc, b| {
+            write!(&mut acc, "{b:02x}").unwrap();
+            acc
+        });
+        debug!(
+            "Received cookie {} with payload {}",
+            self.identifier, payload_hex
+        );
 
         if self.identifier.namespace != "pico_limbo" {
             return Err(PacketHandlerError::invalid_state(
@@ -43,23 +51,29 @@ impl PacketHandler for CookieResponsePacket {
                 error!("Failed to decode NBT payload: {}", e);
                 PacketHandlerError::invalid_state("Invalid NBT in cookie payload")
             })?;
-            
+
             let hostname = payload_tag
                 .find_tag("host")
-                .and_then(|tag| tag.get_string())
+                .and_then(minecraft_protocol::prelude::Nbt::get_string)
                 .ok_or_else(|| {
                     PacketHandlerError::invalid_state("Cookie payload missing 'hostname' tag")
                 })?;
             let port = payload_tag
                 .find_tag("port")
-                .and_then(|tag| tag.get_int())
+                .and_then(minecraft_protocol::prelude::Nbt::get_int)
                 .ok_or_else(|| {
                     PacketHandlerError::invalid_state("Cookie payload missing 'port' tag")
                 })?;
 
-            let management_address = ServerAddress { hostname: hostname.clone(), port: server_state.external_server_management_port() };
+            let management_address = ServerAddress {
+                hostname: hostname.clone(),
+                port: server_state.external_server_management_port(),
+            };
             let game_server_address = ServerAddress { hostname, port };
-            server_state.ensure_monitored(management_address.clone(), server_state.external_server_management_secret().clone());
+            server_state.ensure_monitored(
+                management_address,
+                server_state.external_server_management_secret(),
+            );
             client_state.set_destination(game_server_address);
 
             Ok(batch)
