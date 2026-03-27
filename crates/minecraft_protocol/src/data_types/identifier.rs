@@ -4,58 +4,6 @@ use pico_binutils::prelude::{
 };
 use pico_identifier::Identifier;
 use protocol_version::protocol_version::ProtocolVersion;
-use std::fmt::Display;
-use std::str::FromStr;
-use thiserror::Error;
-
-#[derive(Debug, PartialEq, Hash, Eq, Clone)]
-pub struct Identifier {
-    pub namespace: String,
-    pub thing: String,
-}
-
-impl Identifier {
-    pub fn new(namespace: &str, thing: &str) -> Self {
-        Self {
-            namespace: namespace.to_string(),
-            thing: thing.to_string(),
-        }
-    }
-
-    pub fn minecraft(thing: &str) -> Self {
-        Self::new("minecraft", thing)
-    }
-
-    pub fn pico_limbo(thing: &str) -> Self {
-        Self::new("pico_limbo", thing)
-    }
-}
-
-#[derive(Debug, Error)]
-#[error("Invalid identifier string: {0}")]
-pub struct InvalidIdentifierError(String);
-
-impl FromStr for Identifier {
-    type Err = InvalidIdentifierError;
-
-    fn from_str(string: &str) -> Result<Self, Self::Err> {
-        let mut split = string.split(':');
-        let namespace = split.next().unwrap_or("minecraft");
-        let thing = split
-            .next()
-            .ok_or_else(|| InvalidIdentifierError(string.to_string()))?;
-        Ok(Self {
-            namespace: namespace.to_string(),
-            thing: thing.to_string(),
-        })
-    }
-}
-
-impl Display for Identifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}", self.namespace, self.thing)
-    }
-}
 
 impl DecodePacket for Identifier {
     /// Decodes an identifier.

@@ -6,7 +6,8 @@ use crate::server::packet_handler::{PacketHandler, PacketHandlerError};
 use crate::server::packet_registry::PacketRegistry;
 use crate::server_state::ServerState;
 use minecraft_packets::login::cookie_response_packet::CookieResponsePacket;
-use minecraft_protocol::prelude::{Nbt, Optional};
+use minecraft_protocol::prelude::Optional;
+use pico_nbt::{NbtOptions, Value};
 use pico_rpc::server_monitor::ServerAddress;
 use tracing::{debug, error};
 
@@ -47,20 +48,29 @@ impl PacketHandler for CookieResponsePacket {
         }
 
         if self.identifier.thing == "destination" {
-            let payload_tag = Nbt::from_network_bytes(payload_bytes).map_err(|e| {
+            let (_, payload_tag) = pico_nbt::from_slice_with_options(
+                payload_bytes,
+                NbtOptions::new().nameless_root(true),
+            )
+            .map_err(|e| {
                 error!("Failed to decode NBT payload: {}", e);
                 PacketHandlerError::invalid_state("Invalid NBT in cookie payload")
             })?;
 
-            let hostname = payload_tag
-                .find_tag("host")
-                .and_then(minecraft_protocol::prelude::Nbt::get_string)
+            let compound = match &payload_tag {
+                Value::Compound(map) => map,
+                _ => return Err(PacketHandlerError::invalid_state("Cookie payload is not a compound tag")),
+            };
+
+            let hostname = compound
+                .get("host")
+                .and_then(|v| if let Value::String(s) = v { Some(s.clone()) } else { None })
                 .ok_or_else(|| {
-                    PacketHandlerError::invalid_state("Cookie payload missing 'hostname' tag")
+                    PacketHandlerError::invalid_state("Cookie payload missing 'host' tag")
                 })?;
-            let port = payload_tag
-                .find_tag("port")
-                .and_then(minecraft_protocol::prelude::Nbt::get_int)
+            let port = compound
+                .get("port")
+                .and_then(|v| v.get_int())
                 .ok_or_else(|| {
                     PacketHandlerError::invalid_state("Cookie payload missing 'port' tag")
                 })?;

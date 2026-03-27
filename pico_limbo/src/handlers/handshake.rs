@@ -108,7 +108,7 @@ fn send_cookie_request(
     }
 
     let packet = CookieRequestPacket {
-        identifier: Identifier::pico_limbo("destination"),
+        identifier: Identifier::new_unchecked("pico_limbo", "destination"),
     };
 
     batch.queue(|| PacketRegistry::CookieRequest(packet));
