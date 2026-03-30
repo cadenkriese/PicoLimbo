@@ -113,14 +113,21 @@ where
         &mut self,
         packet: RawPacket,
     ) -> Result<(), PacketStreamError> {
-        let packet_length = packet.size();
+        let Some(raw_id) = packet.packet_id() else {
+            return Err(PacketStreamError::MissingPacketId);
+        };
+        let packet_id_bytes = VarInt::new(i32::from(raw_id)).to_bytes()?;
+        let payload = packet.data();
+        let packet_length = packet_id_bytes.len() + payload.len();
+
         if packet_length > MAXIMUM_PACKET_LENGTH {
             return Err(PacketLengthParseError::PacketTooLarge.into());
         }
 
         let packet_length_bytes = VarInt::new(i32::try_from(packet_length)?).to_bytes()?;
         self.stream.write_all(&packet_length_bytes).await?;
-        self.stream.write_all(packet.bytes()).await?;
+        self.stream.write_all(&packet_id_bytes).await?;
+        self.stream.write_all(payload).await?;
         self.stream.flush().await?;
 
         Ok(())
@@ -131,7 +138,12 @@ where
         packet: RawPacket,
         compression_settings: &CompressionSettings,
     ) -> Result<(), PacketStreamError> {
-        let uncompressed_payload = packet.bytes();
+        let Some(raw_id) = packet.packet_id() else {
+            return Err(PacketStreamError::MissingPacketId);
+        };
+        let packet_id_bytes = VarInt::new(i32::from(raw_id)).to_bytes()?;
+        let mut uncompressed_payload = packet_id_bytes;
+        uncompressed_payload.extend_from_slice(packet.data());
         let uncompressed_len = uncompressed_payload.len();
 
         let (data_length_bytes, final_payload) =
@@ -139,12 +151,12 @@ where
                 // Compress the packet
                 let data_length = VarInt::new(i32::try_from(uncompressed_len)?).to_bytes()?;
                 let compressed_payload =
-                    compress_data(uncompressed_payload, compression_settings.level)?;
+                    compress_data(&uncompressed_payload, compression_settings.level)?;
                 (data_length, compressed_payload)
             } else {
                 // Don't compress, send with data length 0
                 let data_length = VarInt::new(0).to_bytes()?;
-                (data_length, uncompressed_payload.to_vec())
+                (data_length, uncompressed_payload)
             };
 
         let packet_length = data_length_bytes.len() + final_payload.len();
