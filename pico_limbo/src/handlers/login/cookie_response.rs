@@ -57,20 +57,27 @@ impl PacketHandler for CookieResponsePacket {
                 PacketHandlerError::invalid_state("Invalid NBT in cookie payload")
             })?;
 
-            let compound = match &payload_tag {
-                Value::Compound(map) => map,
-                _ => return Err(PacketHandlerError::invalid_state("Cookie payload is not a compound tag")),
+            let Value::Compound(compound) = &payload_tag else {
+                return Err(PacketHandlerError::invalid_state(
+                    "Cookie payload is not a compound tag",
+                ));
             };
 
             let hostname = compound
                 .get("host")
-                .and_then(|v| if let Value::String(s) = v { Some(s.clone()) } else { None })
+                .and_then(|v| {
+                    if let Value::String(s) = v {
+                        Some(s.clone())
+                    } else {
+                        None
+                    }
+                })
                 .ok_or_else(|| {
                     PacketHandlerError::invalid_state("Cookie payload missing 'host' tag")
                 })?;
             let port = compound
                 .get("port")
-                .and_then(|v| v.get_int())
+                .and_then(pico_nbt::Value::get_int)
                 .ok_or_else(|| {
                     PacketHandlerError::invalid_state("Cookie payload missing 'port' tag")
                 })?;
@@ -78,7 +85,7 @@ impl PacketHandler for CookieResponsePacket {
             let management_address = ServerAddress {
                 hostname: server_state
                     .external_server_hostname()
-                    .unwrap_or(hostname.clone()),
+                    .unwrap_or_else(|| hostname.clone()),
                 port: server_state.external_server_management_port(),
             };
             let game_server_address = ServerAddress { hostname, port };
